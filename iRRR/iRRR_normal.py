@@ -190,7 +190,7 @@ def irrr_normal(Y,X,lam1,params=None):
 
             ax = fig.add_subplot(222)
             rec_Theta[niter] = norm(Theta[0],ord='fro')
-            ax.plot(np.arange(niter+1)+1,rec_Theta[:niter+1],'o-');
+            ax.plot(np.arange(niter+1)+1,rec_Theta[:niter+1],'o-')
             ax.set_title('Theta: Lagrange multiplier for B1')
 
             fig.suptitle(f'Lambda1: {lam1:.4f}')
@@ -230,7 +230,7 @@ def _objValue(Y,X,mu,B,lam0,lam1):
     pred = np.ones((n,1))@mu.T
     for i in range(K):
         pred = pred+X[i]@B[i]
-        obj = obj + lam0/2*norm(B[i],ord='fro')**2+lam1*sum(svdvals(B[i]));
+        obj = obj + lam0/2*norm(B[i],ord='fro')**2+lam1*sum(svdvals(B[i]))
     obj = obj+(1/(2*n))*np.nansum((Y-pred)**2)
 
     return obj

@@ -70,7 +70,7 @@ for j,lam1 in enumerate(cand_iRRR_lam1):
     iRRR_out[j]=np.trace(e.T@Gammatrue@e)
     selrank[j]=matrix_rank(Bout)
 
-ind2=np.argmin(iRRR_out);
+ind2=np.argmin(iRRR_out)
 lam1_wiRRR=cand_iRRR_lam1[ind2]
 [np.min(cand_iRRR_lam1),lam1_wiRRR,np.max(cand_iRRR_lam1)]
 
@@ -107,13 +107,13 @@ for isim in range(nsim):
     E=np.subtract(E,E.mean(0))
     Y=cX@Btrue+E
     if missing:
-        Y[np.unravel_index(missing,(n,q))]=np.NaN;
+        Y[np.unravel_index(missing,(n,q))]=np.NaN
 
     # implement diff methods
     # iRRR
     time1=time.time()
     [B_wiRRR,_,Bcell_wiRRR,_,_]=irrr_normal(Y,X,lam1_wiRRR,
-        {'varyrho':True,'Tol':0.01,'fig':False,'weight':weight});
+        {'varyrho':True,'Tol':0.01,'fig':False,'weight':weight})
     T1=time.time() - time1
 
 
@@ -124,7 +124,7 @@ for isim in range(nsim):
     rec_rank[isim]=matrix_rank(B_wiRRR)
     rec_seprank[isim,:] = [matrix_rank(Bk) for Bk in Bcell_wiRRR]
     rec_nuclear[isim]=sum(svdvals(B_wiRRR))
-    rec_time[isim]=T1;
+    rec_time[isim]=T1
 
 print(f'Mean PMSE: {rec_pred.mean()}')
 print(f'Std PMSE: {rec_pred.std()}')
