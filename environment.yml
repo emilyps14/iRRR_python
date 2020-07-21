@@ -1,0 +1,17 @@
+name: iRRR_python
+channels:
+- defaults
+- anaconda
+- conda-forge
+dependencies:
+- python>=3.7
+- ipython
+- pip
+- numpy
+- scipy
+- jupyter
+- ipykernel
+- matplotlib
+- pip:
+  - PyQt5
+  - -e .
