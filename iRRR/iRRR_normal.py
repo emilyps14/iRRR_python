@@ -4,7 +4,7 @@ from numpy.random import randn
 from scipy.linalg import pinv, svd, norm, svdvals
 # from scipy.sparse.linalg import svds
 
-def irrr_normal(Y,X,lam1,params=None):
+def irrr_normal(Y,X,lam1,params=None,return_details=False):
     """
     This function uses consensus ADMM to fit the iRRR model. It is suitable
     for continuous outcomes (no missing or missing).
@@ -121,10 +121,13 @@ def irrr_normal(Y,X,lam1,params=None):
     diff = np.inf
     rec_obj = np.zeros((Niter+1,2)) # record objective values
     rec_obj[0,:] = obj
-    rec_Theta = np.zeros((Niter)) # record Frobenius norm of Theta
+    rec_Theta = np.zeros((Niter,K)) # record Frobenius norm of Theta
+    rec_nonzeros = np.zeros((Niter,K)) # record count of nonzero svals
     rec_primal = np.zeros((Niter)) # record total primal residual
     rec_dual = np.zeros((Niter)) # record total dual residual
-    while niter<Niter and np.abs(diff)>tol:
+    while niter<=Niter and np.abs(diff)>tol:
+        niter = niter+1
+
         cB_old = cB.copy()
 
         # update working Y and mu
@@ -143,8 +146,11 @@ def irrr_normal(Y,X,lam1,params=None):
         for k,(Bk,Thetak) in enumerate(zip(B,Theta)):
             temp = Bk-Thetak/rho
             [tempU,tempD,tempVh] = svd(temp,full_matrices=False)
-            A[k] = tempU @ np.diag(_softThres(tempD,lam1/rho)) @ tempVh
+            tempD = _softThres(tempD,lam1/rho)
+            A[k] = tempU @ np.diag(tempD) @ tempVh
             Theta[k] = Theta[k]+rho*(A[k]-Bk)
+            rec_nonzeros[niter-1,k] = np.count_nonzero(tempD)
+            rec_Theta[niter-1,k] = norm(Theta[k],ord='fro')
 
         # update cA and cTheta
         for cp,nextcp,Ak,Thetak in zip(cumsum_p[:-1],cumsum_p[1:],A,Theta):
@@ -157,14 +163,14 @@ def irrr_normal(Y,X,lam1,params=None):
 
         # check residuals
         primal = norm(cA-cB,ord='fro')**2
-        rec_primal[niter] = primal
+        rec_primal[niter-1] = primal
         dual = norm(cB-cB_old,ord='fro')**2
-        rec_dual[niter] = dual
+        rec_dual[niter-1] = dual
 
         # check objective values
         obj = [_objValue(Y,X,mu,A,lam0,lam1),  # full objective function (with penalties) on observed data
                _objValue(Y,X,mu,A,0,0)] # only the least square part on observed data
-        rec_obj[niter+1,:] = obj
+        rec_obj[niter,:] = obj
 
         # stopping rule
         diff = primal #max(primal,rho*dual)
@@ -175,29 +181,26 @@ def irrr_normal(Y,X,lam1,params=None):
             fig = plt.figure(1,figsize=[14,7.5])
             fig.clf()
             ax = fig.add_subplot(221)
-            ax.plot(np.arange(niter+2),rec_obj[:niter+2,0],'bo-',label='Full Obj Value')
-            ax.plot(np.arange(niter+2),rec_obj[:niter+2,1],'ro-',label='LS Obj Value')
+            ax.plot(np.arange(niter+1),rec_obj[:niter+1,0],'bo-',label='Full Obj Value')
+            ax.plot(np.arange(niter+1),rec_obj[:niter+1,1],'ro-',label='LS Obj Value')
             ax.legend()
-            ax.set_title(f'Objective function value (decrease in full={rec_obj[niter,0]-rec_obj[niter+1,0]:.4f})')
+            ax.set_title(f'Objective function value (decrease in full={rec_obj[niter-1,0]-rec_obj[niter,0]:.4f})')
 
             # primal and dual residuals
             ax1 = fig.add_subplot(223)
-            ax1.plot(np.arange(niter+1)+1,rec_primal[:niter+1],'o-')
+            ax1.plot(np.arange(niter)+1,rec_primal[:niter],'o-')
             ax1.set_title(f'|A-B|^2: {primal:.4f}')
             ax2 = fig.add_subplot(224)
-            ax2.plot(np.arange(niter+1)+1,rec_dual[:niter+1],'o-')
+            ax2.plot(np.arange(niter)+1,rec_dual[:niter],'o-')
             ax2.set_title(f'Dual residual |B-B|^2: {dual:.4f}')
 
             ax = fig.add_subplot(222)
-            rec_Theta[niter] = norm(Theta[0],ord='fro')
-            ax.plot(np.arange(niter+1)+1,rec_Theta[:niter+1],'o-')
+            ax.plot(np.arange(niter)+1,rec_Theta[:niter,0],'o-')
             ax.set_title('Theta: Lagrange multiplier for B1')
 
             fig.suptitle(f'Lambda1: {lam1:.4f}')
 
             plt.pause(0.05)
-
-        niter = niter+1
 
     if niter==Niter:
         print(f'iRRR does NOT converge after {Niter} iterations!')
@@ -210,7 +213,16 @@ def irrr_normal(Y,X,lam1,params=None):
     C = np.vstack(A)
     mu = (mu.T - meanX@C).T
 
-    return C,mu,A,B,Theta
+    if return_details:
+        details = dict(niter=niter,
+                       rec_Theta=rec_Theta[:niter,:],
+                       rec_nonzeros=rec_nonzeros[:niter,:],
+                       rec_primal=rec_primal[:niter],
+                       rec_dual=rec_dual[:niter],
+                       rec_obj=rec_obj[:niter+1])
+        return C,mu,A,B,Theta,details
+    else:
+        return C,mu,A,B,Theta
 
 
 def _majorize_Y(Y,Eta):
