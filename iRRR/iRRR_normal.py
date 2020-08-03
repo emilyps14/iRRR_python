@@ -28,7 +28,7 @@ def irrr_normal(Y,X,lam1,params=None,return_details=False):
                     By theory, we should use w(i)=(1/n)*max(svd(X{i}))*(sqrt(q)+sqrt(rank(X{i}))); where X is column centered
                     Heuristically, one could also use w(i)=|X_i|_F
 
-           randomstart   Boolean (default: False)
+           randomstart   Boolean (default: False) or the initial condition for B (list)
 
            varyrho  False=fixed rho (default); True=adaptive rho
 
@@ -93,8 +93,11 @@ def irrr_normal(Y,X,lam1,params=None,return_details=False):
     # get a working Y by filling in Nans with best estimate
     wY,wY1,mu = _majorize_Y(Y,np.ones((n,1))@mu.T)
 
-    if randomstart:
-        B = [randn((pk,q)) for pk in p]
+    if isinstance(randomstart, list):
+        assert(np.all([Bk.shape==(pk,q) for Bk,pk in zip(randomstart,p)]))
+        B = [Bk*wk for Bk,wk in zip(randomstart,weight)]
+    elif randomstart:
+        B = [randn(pk,q) for pk in p]
     else:
         B = [pinv(Xk.T @ Xk) @ Xk.T @ wY1 for Xk in X] # OLS
 
@@ -125,7 +128,7 @@ def irrr_normal(Y,X,lam1,params=None,return_details=False):
     rec_nonzeros = np.zeros((Niter,K)) # record count of nonzero svals
     rec_primal = np.zeros((Niter)) # record total primal residual
     rec_dual = np.zeros((Niter)) # record total dual residual
-    while niter<=Niter and np.abs(diff)>tol:
+    while niter<Niter and np.abs(diff)>tol:
         niter = niter+1
 
         cB_old = cB.copy()
@@ -173,7 +176,7 @@ def irrr_normal(Y,X,lam1,params=None,return_details=False):
         rec_obj[niter,:] = obj
 
         # stopping rule
-        diff = primal #max(primal,rho*dual)
+        diff = max(primal,rho*dual) # primal
 
         # plot
         if blnFig:
